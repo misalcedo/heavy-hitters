@@ -26,9 +26,9 @@ func NewList[T any]() *List[T] {
 }
 
 func (l *List[T]) PushHead(value T) *List[T] {
-	l.PushHeadNode(&Node[T]{
-		Value: value,
-	})
+	node := new(Node[T])
+	node.Value = value
+	l.PushHeadNode(node)
 
 	return l
 }
@@ -54,9 +54,9 @@ func (l *List[T]) PushHeadNode(node *Node[T]) {
 }
 
 func (l *List[T]) PushTail(value T) *List[T] {
-	l.PushTailNode(&Node[T]{
-		Value: value,
-	})
+	node := new(Node[T])
+	node.Value = value
+	l.PushTailNode(node)
 	return l
 }
 

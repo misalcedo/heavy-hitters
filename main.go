@@ -11,6 +11,9 @@ import (
 
 // StreamSummary implements the [SpaceSaving] algorithm.
 //
+// The [StreamSummary] maintains a list of buckets for counts with the same frequency.
+// The head of the list is the maximum frequency and the tail is the minimum.
+//
 // [SpaceSaving]: https://www.cs.ucsb.edu/sites/default/files/documents/2005-23.pdf
 type StreamSummary[T cmp.Ordered] struct {
 	hits     int
@@ -18,6 +21,8 @@ type StreamSummary[T cmp.Ordered] struct {
 	buckets  *List[Bucket[T]]
 }
 
+// Bucket maintains a list of counts with the same frequency.
+// The head of the list is the maximum frequency and the tail is the minimum.
 type Bucket[T cmp.Ordered] struct {
 	count  int
 	counts *List[Counter[T]]
@@ -38,11 +43,10 @@ func (s *StreamSummary[T]) Hit(e T) {
 	if !monitored {
 		// Get the minimum node
 		node = s.buckets.Tail().Value.counts.Tail()
-		count := node.Value
-		delete(s.elements, count.Key)
+		delete(s.elements, node.Value.Key)
 
-		count.Key = e
-		count.Error = count.Count
+		node.Value.Key = e
+		node.Value.Error = node.Value.Count
 		s.elements[e] = node
 	}
 
@@ -50,21 +54,24 @@ func (s *StreamSummary[T]) Hit(e T) {
 }
 
 func (s *StreamSummary[T]) incrementCounter(node *Node[Counter[T]]) {
-	count := node.Value
-	oldBucket := count.bucket
-	count.bucket = oldBucket.Next()
+	oldBucket := node.Value.bucket
 
-	node.RemoveSelf()
-	count.Count++
+	node.Value.bucket = oldBucket.Previous()
+	node.Value.Count++
 
-	if count.bucket != nil && count.Count == count.bucket.Value.count {
-		count.bucket.Value.counts.PushTail(count)
+	if node.Value.bucket != nil && node.Value.Count == node.Value.bucket.Value.count {
+		node.Value.bucket.Value.counts.PushTailNode(node)
 	} else {
-		newBucket := oldBucket.InsertNext(Bucket[T]{
-			count:  count.Count,
+		newBucket := oldBucket.InsertPrevious(Bucket[T]{
+			count:  node.Value.Count,
 			counts: NewList[Counter[T]](),
 		})
+		node.Value.bucket = newBucket
 		newBucket.Value.counts.PushTailNode(node)
+	}
+
+	if oldBucket.Value.counts.Empty() {
+		oldBucket.RemoveSelf()
 	}
 }
 
@@ -155,11 +162,8 @@ func main() {
 	hits := 0
 
 	for _, e := range s {
-		if hits > 20 {
-			break
-		}
-
 		hits++
+
 		ss.Hit(e)
 	}
 
@@ -179,7 +183,7 @@ func main() {
 			panic("unable to find element")
 		}
 
-		fmt.Printf("Element %d is %s with %v", i, e, count)
+		fmt.Printf("Element %d is %s with %v\n", i, e, count.Count)
 	}
 
 	fmt.Printf("Frequent elements: %v (guaranteed: %v)", frequent, fGuaranteed)
