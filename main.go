@@ -35,20 +35,25 @@ type HeavyHitters[T cmp.Ordered] interface {
 type StreamSummary[T cmp.Ordered] struct {
 	hits     int
 	elements map[T]*Node[frequencyCounter[T]]
-	buckets  *List[frequencyBucket[T]]
+	// A list of buckets of counters with the same frequency.
+	// The buckets are used to maintain a sorted data structure even in the face of multiple counters with the same frequency.
+	// The head of the list is the maximum frequency and the tail is the minimum.
+	buckets *List[frequencyBucket[T]]
 }
 
 // frequencyBucket maintains a list of counts with the same frequency.
-// The head of the list is the maximum frequency and the tail is the minimum.
 type frequencyBucket[T cmp.Ordered] struct {
-	count  int
+	count int
+	// A list of counts with the same frequency.
+	// The head of the list is the least recently inserted count and the tail is the most recently inserted count.
 	counts *List[frequencyCounter[T]]
 }
 
+// frequencyCounter counts the frequency of an element in a stream along with its error bounds.
 type frequencyCounter[T cmp.Ordered] struct {
-	Key    T
-	Count  int
-	Error  int
+	key    T
+	count  int
+	error  int
 	bucket *Node[frequencyBucket[T]]
 }
 
@@ -66,29 +71,29 @@ func (s *StreamSummary[T]) Hit(e T) Count {
 	if !monitored {
 		// Get the minimum node
 		node = s.buckets.Tail().Value.counts.Tail()
-		delete(s.elements, node.Value.Key)
+		delete(s.elements, node.Value.key)
 
-		node.Value.Key = e
-		node.Value.Error = node.Value.Count
+		node.Value.key = e
+		node.Value.error = node.Value.count
 		s.elements[e] = node
 	}
 
 	s.incrementCounter(node)
 
-	return Count{Count: node.Value.Count, Error: node.Value.Error}
+	return Count{Count: node.Value.count, Error: node.Value.error}
 }
 
 func (s *StreamSummary[T]) incrementCounter(node *Node[frequencyCounter[T]]) {
 	oldBucket := node.Value.bucket
 
 	node.Value.bucket = oldBucket.Previous()
-	node.Value.Count++
+	node.Value.count++
 
-	if node.Value.bucket != nil && node.Value.Count == node.Value.bucket.Value.count {
+	if node.Value.bucket != nil && node.Value.count == node.Value.bucket.Value.count {
 		node.Value.bucket.Value.counts.PushTailNode(node)
 	} else {
 		newBucket := oldBucket.InsertPrevious(frequencyBucket[T]{
-			count:  node.Value.Count,
+			count:  node.Value.count,
 			counts: NewList[frequencyCounter[T]](),
 		})
 		node.Value.bucket = newBucket
@@ -114,12 +119,12 @@ OuterLoop:
 	for b := s.buckets.Head(); b != nil; b = b.Next() {
 		for c := b.Value.counts.Head(); c != nil; c = c.Next() {
 			if len(topK) >= k {
-				guaranteed = c.Value.Count <= minGuaranteedCount
+				guaranteed = c.Value.count <= minGuaranteedCount
 				break OuterLoop
 			}
 
-			topK = append(topK, c.Value.Key)
-			guaranteedCount := c.Value.Count - c.Value.Error
+			topK = append(topK, c.Value.key)
+			guaranteedCount := c.Value.count - c.Value.error
 			minGuaranteedCount = min(minGuaranteedCount, guaranteedCount)
 			order = order && (guaranteedCount <= previousGuaranteedCount)
 
@@ -145,8 +150,8 @@ OuterLoop:
 				break OuterLoop
 			}
 
-			frequent = append(frequent, c.Value.Key)
-			guaranteed = guaranteed && ((c.Value.Count - c.Value.Error) >= threshold)
+			frequent = append(frequent, c.Value.key)
+			guaranteed = guaranteed && ((c.Value.count - c.Value.error) >= threshold)
 		}
 	}
 
@@ -164,7 +169,7 @@ func (s *StreamSummary[T]) Get(e T) (Count, bool) {
 
 	node, found := s.elements[e]
 	if found {
-		count = Count{Count: node.Value.Count, Error: node.Value.Error}
+		count = Count{Count: node.Value.count, Error: node.Value.error}
 	}
 
 	return count, found

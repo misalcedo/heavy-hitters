@@ -13,10 +13,10 @@ type NaiveHeavyHitters[T cmp.Ordered] struct {
 
 func (n NaiveHeavyHitters[T]) Hit(t T) Count {
 	count, _ := n.counts[t]
-	n.counts[t]++
+	n.counts[t] = count + 1
 
 	return Count{
-		Count: count,
+		Count: n.counts[t],
 	}
 }
 
@@ -47,6 +47,10 @@ func (n NaiveHeavyHitters[T]) Frequent(phi float64) ([]T, bool) {
 		}
 	}
 
+	sort.Slice(frequent, func(i, j int) bool {
+		return n.counts[frequent[i]] > n.counts[frequent[j]]
+	})
+
 	return frequent, true
 }
 
@@ -58,8 +62,14 @@ func (n NaiveHeavyHitters[T]) Top(k int) ([]T, bool) {
 	}
 
 	sort.Slice(top, func(i, j int) bool {
-		return n.counts[top[i]] < n.counts[top[j]]
+		return n.counts[top[i]] > n.counts[top[j]]
 	})
 
 	return top[0:k], true
+}
+
+func NewNaive[T cmp.Ordered]() NaiveHeavyHitters[T] {
+	return NaiveHeavyHitters[T]{
+		counts: make(map[T]int),
+	}
 }
