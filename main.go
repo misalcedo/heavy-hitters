@@ -3,6 +3,7 @@ package main
 import (
 	"cmp"
 	"fmt"
+	"math"
 	"os"
 	"strings"
 	"time"
@@ -15,7 +16,7 @@ import (
 type StreamSummary[T cmp.Ordered] struct {
 	hits     int
 	capacity int
-	elements map[T]*Counter[T]
+	elements map[T]Counter[T]
 	buckets  *List[Bucket[T]]
 }
 
@@ -28,7 +29,7 @@ type Counter[T cmp.Ordered] struct {
 	Key    T
 	Count  int
 	Error  int
-	Bucket *Node[*Bucket[T]]
+	bucket *Node[Bucket[T]]
 }
 
 func (s *StreamSummary[T]) Hit(e T) {
@@ -62,45 +63,44 @@ func (s *StreamSummary[T]) Top(k int) ([]T, bool) {
 	topK := make([]T, 0, k)
 	order := true
 	guaranteed := false
-	//minGuaranteedCount := math.MaxInt
-	//
-	//requestedLen := k + 1
-	//topCounters := s.counts.TopK(requestedLen)
-	//actualLen := len(topCounters)
-	//
-	//for i := actualLen - 1; i >= 0; i-- {
-	//	c := topCounters[i]
-	//
-	//	guaranteedCount := c.Count - c.Error
-	//	minGuaranteedCount = min(minGuaranteedCount, guaranteedCount)
-	//
-	//	if len(topK) < k {
-	//		topK = append(topK, c.Element)
-	//
-	//		if i > 0 {
-	//			order = order && (guaranteedCount >= topCounters[i-1].Count)
-	//		}
-	//	}
-	//}
-	//
-	//if actualLen == requestedLen {
-	//	guaranteed = topCounters[0].Count <= minGuaranteedCount
-	//}
+	minGuaranteedCount := math.MaxInt
+	previousGuaranteedCount := math.MaxInt
+
+OuterLoop:
+	for b := s.buckets.Tail(); b != nil; b = b.Previous() {
+		for c := b.Value.counts.Tail(); c != nil; c = c.Previous() {
+			if len(topK) >= k {
+				break OuterLoop
+			}
+
+			topK = append(topK, c.Value.Key)
+			guaranteedCount := c.Value.Count - c.Value.Error
+			minGuaranteedCount = min(minGuaranteedCount, guaranteedCount)
+			order = order && (guaranteedCount <= previousGuaranteedCount)
+
+			previousGuaranteedCount = guaranteedCount
+		}
+	}
 
 	return topK, guaranteed && order
 }
 
 func (s *StreamSummary[T]) Frequent(phi float64) ([]T, bool) {
-	//threshold := int(math.Ceil(phi * float64(s.hits)))
+	threshold := int(math.Ceil(phi * float64(s.hits)))
 	frequent := make([]T, 0)
 	guaranteed := true
 
-	//s.counts.ForEach(func(c *Counter[T]) bool {
-	//	frequent = append(frequent, c.Element)
-	//	guaranteed = guaranteed && ((c.Count - c.Error) >= threshold)
-	//
-	//	return c.Count <= threshold
-	//})
+OuterLoop:
+	for b := s.buckets.Tail(); b != nil; b = b.Previous() {
+		for c := b.Value.counts.Tail(); c != nil; c = c.Previous() {
+			if b.Value.count <= threshold {
+				break OuterLoop
+			}
+
+			frequent = append(frequent, c.Value.Key)
+			guaranteed = guaranteed && ((c.Value.Count - c.Value.Error) >= threshold)
+		}
+	}
 
 	return frequent, guaranteed
 }
@@ -110,23 +110,14 @@ func (s *StreamSummary[T]) Hits() int {
 }
 
 func (s *StreamSummary[T]) Get(e T) (Counter[T], bool) {
-	result := Counter[T]{
-		Key: e,
-	}
-
 	count, found := s.elements[e]
-	if found {
-		result.Count = count.Count
-		result.Error = count.Error
-	}
-
-	return result, found
+	return count, found
 }
 
 func New[T cmp.Ordered](capacity int) *StreamSummary[T] {
 	return &StreamSummary[T]{
 		capacity: capacity,
-		elements: make(map[T]*Counter[T]),
+		elements: make(map[T]Counter[T]),
 		buckets:  NewList[Bucket[T]](),
 	}
 }
