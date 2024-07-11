@@ -69,11 +69,14 @@ func (s *StreamSummary[T]) Hit(e T) Count {
 	node, monitored := s.elements[e]
 
 	if !monitored {
-		// Get the minimum node
+		// get the node for element with least hits
+		// ties can be broken arbitrarily
 		node = s.buckets.Tail().Value.counts.Tail()
 		delete(s.elements, node.Value.key)
 
+		// replace the min with e
 		node.Value.key = e
+		// the error is the value of min
 		node.Value.error = node.Value.count
 		s.elements[e] = node
 	}
@@ -84,22 +87,33 @@ func (s *StreamSummary[T]) Hit(e T) Count {
 }
 
 func (s *StreamSummary[T]) incrementCounter(node *Node[frequencyCounter[T]]) {
+	// the current bucket of the node, before incrementing
 	oldBucket := node.Value.bucket
 
+	// The previous moves towards the head (assuming head-to-tail traversal).
+	// Moving buckets allows us to jump over any other counts with the same frequency.
 	node.Value.bucket = oldBucket.Previous()
 	node.Value.count++
 
 	if node.Value.bucket != nil && node.Value.count == node.Value.bucket.Value.count {
+		// If the new bucket exists (the old bucket was not the head), then add this node to the tail.
+		// Also, the new bucket's count has to match the count's incremented frequency.
+		// Only counts of the same frequency can be in the same bucket.
 		node.Value.bucket.Value.counts.PushTailNode(node)
 	} else {
+		// The old bucket was the head or its count was larger than the node's incremented frequency.
+		// Create a new bucket to add this node.
+		// The new bucket will either be the head of the list, or be between the old bucket and the old bucket's previous bucket.
 		newBucket := oldBucket.InsertPrevious(frequencyBucket[T]{
 			count:  node.Value.count,
 			counts: NewList[frequencyCounter[T]](),
 		})
+		// Add this node to the new bucket.
 		node.Value.bucket = newBucket
 		newBucket.Value.counts.PushTailNode(node)
 	}
 
+	// If the old bucket is empty, remove it from the list of buckets.
 	if oldBucket.Value.counts.Empty() {
 		oldBucket.RemoveSelf()
 	}
@@ -145,11 +159,12 @@ func (s *StreamSummary[T]) Frequent(phi float64) ([]T, bool) {
 
 OuterLoop:
 	for b := s.buckets.Head(); b != nil; b = b.Next() {
-		for c := b.Value.counts.Head(); c != nil; c = c.Next() {
-			if b.Value.count <= threshold {
-				break OuterLoop
-			}
+		if b.Value.count <= threshold {
+			// all counts in the same bucket have the same frequency, so we only need to test this predicate once per bucket.
+			break OuterLoop
+		}
 
+		for c := b.Value.counts.Head(); c != nil; c = c.Next() {
 			frequent = append(frequent, c.Value.key)
 			guaranteed = guaranteed && ((c.Value.count - c.Value.error) >= threshold)
 		}
