@@ -203,6 +203,74 @@ func TestList_LoopTailDrain(t *testing.T) {
 	require.Equal(t, expected, actual)
 }
 
+func TestList_InsertPreviousHead(t *testing.T) {
+	var zeroValue int
+
+	l := ListFrom([]int{2})
+
+	require.Equal(t, 1, l.Len())
+	l.Head().InsertPrevious(1)
+	require.Equal(t, 2, l.Len())
+
+	actual := make([]int, 0, l.Len())
+	for v := l.RemoveHead(); v != zeroValue; v = l.RemoveHead() {
+		actual = append(actual, v)
+	}
+
+	require.Equal(t, []int{1, 2}, actual)
+}
+
+func TestList_InsertNextTail(t *testing.T) {
+	var zeroValue int
+
+	l := ListFrom([]int{2})
+
+	require.Equal(t, 1, l.Len())
+	l.Head().InsertNext(3)
+	require.Equal(t, 2, l.Len())
+
+	actual := make([]int, 0, l.Len())
+	for v := l.RemoveHead(); v != zeroValue; v = l.RemoveHead() {
+		actual = append(actual, v)
+	}
+
+	require.Equal(t, []int{2, 3}, actual)
+}
+
+func TestList_InsertPreviousMiddle(t *testing.T) {
+	var zeroValue int
+
+	l := ListFrom([]int{1, 3})
+
+	require.Equal(t, 2, l.Len())
+	l.Tail().InsertPrevious(2)
+	require.Equal(t, 3, l.Len())
+
+	actual := make([]int, 0, l.Len())
+	for v := l.RemoveHead(); v != zeroValue; v = l.RemoveHead() {
+		actual = append(actual, v)
+	}
+
+	require.Equal(t, []int{1, 2, 3}, actual)
+}
+
+func TestList_InsertNextMiddle(t *testing.T) {
+	var zeroValue int
+
+	l := ListFrom([]int{1, 3})
+
+	require.Equal(t, 2, l.Len())
+	l.Head().InsertNext(2)
+	require.Equal(t, 3, l.Len())
+
+	actual := make([]int, 0, l.Len())
+	for v := l.RemoveHead(); v != zeroValue; v = l.RemoveHead() {
+		actual = append(actual, v)
+	}
+
+	require.Equal(t, []int{1, 2, 3}, actual)
+}
+
 func ListFrom[T any](values []T) *List[T] {
 	l := NewList[T]()
 	for _, v := range values {

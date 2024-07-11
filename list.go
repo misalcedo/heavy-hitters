@@ -10,6 +10,7 @@ type Node[T any] struct {
 	Value    T
 	previous *Node[T]
 	next     *Node[T]
+	list     *List[T]
 }
 
 func (n *Node[T]) Previous() *Node[T] {
@@ -28,6 +29,7 @@ func (l *List[T]) PushHead(value T) *List[T] {
 	if l.len == 0 {
 		l.head = &Node[T]{
 			Value: value,
+			list:  l,
 		}
 		l.tail = l.head
 	} else {
@@ -35,6 +37,7 @@ func (l *List[T]) PushHead(value T) *List[T] {
 		l.head = &Node[T]{
 			Value: value,
 			next:  oldHead,
+			list:  l,
 		}
 		oldHead.previous = l.head
 	}
@@ -48,6 +51,7 @@ func (l *List[T]) PushTail(value T) *List[T] {
 	if l.len == 0 {
 		l.tail = &Node[T]{
 			Value: value,
+			list:  l,
 		}
 		l.head = l.tail
 	} else {
@@ -55,6 +59,7 @@ func (l *List[T]) PushTail(value T) *List[T] {
 		l.tail = &Node[T]{
 			Value:    value,
 			previous: oldTail,
+			list:     l,
 		}
 		oldTail.next = l.tail
 	}
@@ -114,4 +119,44 @@ func (l *List[T]) Len() int {
 
 func (l *List[T]) Empty() bool {
 	return l.len == 0
+}
+
+func (n *Node[T]) InsertPrevious(value T) *Node[T] {
+	if n == n.list.head {
+		n.list.PushHead(value)
+		return n.list.head
+	}
+
+	node := &Node[T]{
+		Value:    value,
+		next:     n,
+		previous: n.previous,
+		list:     n.list,
+	}
+
+	n.previous.next = node
+	n.previous = node
+	n.list.len++
+
+	return node
+}
+
+func (n *Node[T]) InsertNext(value T) *Node[T] {
+	if n == n.list.tail {
+		n.list.PushTail(value)
+		return n.list.tail
+	}
+
+	node := &Node[T]{
+		Value:    value,
+		previous: n,
+		next:     n.next,
+		list:     n.list,
+	}
+
+	n.next.previous = node
+	n.next = node
+	n.list.len++
+
+	return node
 }
