@@ -9,10 +9,26 @@ import (
 	"time"
 )
 
-// StreamSummary implements the [SpaceSaving] algorithm.
-//
-// The [StreamSummary] maintains a list of buckets for counts with the same frequency.
-// The head of the list is the maximum frequency and the tail is the minimum.
+// HeavyHitters provides approximations for finding frequent and top-k elements.
+type HeavyHitters[T cmp.Ordered] interface {
+	// Hit increments the frequency for the given element, then returns an approximation of the current frequency.
+	Hit(T) Count
+	// Hits counts the total number of hits for all elements.
+	Hits() int
+	// Get retrieves the approximated frequency for the given element, with a bounds on the error.
+	Get(T) (Count, bool)
+	// Frequent finds the set of elements that contribute more than phi * Hits of the total frequency.
+	// The slice is returned in descending order of frequency.
+	// The boolean is true iff the returned slice is guaranteed to all be frequent elements, irrespective of the errors.
+	Frequent(phi float64) ([]T, bool)
+	// Top finds the top-k elements seen in the stream.
+	// The slice is returned in descending order of frequency.
+	// The boolean is true iff the order of the top-k elements is correct and the implementation guarantees they are the actual top-k, irrespective of the errors.
+	Top(k int) ([]T, bool)
+}
+
+// StreamSummary is a data structure used to implement the [SpaceSaving] algorithm.
+// The [SpaceSaving] algorithm reports both frequent and top-k elements with tight guarantees on errors.
 //
 // [SpaceSaving]: https://www.cs.ucsb.edu/sites/default/files/documents/2005-23.pdf
 type StreamSummary[T cmp.Ordered] struct {
@@ -35,7 +51,12 @@ type Counter[T cmp.Ordered] struct {
 	bucket *Node[Bucket[T]]
 }
 
-func (s *StreamSummary[T]) Hit(e T) {
+type Count struct {
+	Count int
+	Error int
+}
+
+func (s *StreamSummary[T]) Hit(e T) Count {
 	s.hits++
 
 	node, monitored := s.elements[e]
@@ -51,6 +72,8 @@ func (s *StreamSummary[T]) Hit(e T) {
 	}
 
 	s.incrementCounter(node)
+
+	return Count{Count: node.Value.Count, Error: node.Value.Error}
 }
 
 func (s *StreamSummary[T]) incrementCounter(node *Node[Counter[T]]) {
@@ -126,12 +149,20 @@ func (s *StreamSummary[T]) Hits() int {
 	return s.hits
 }
 
-func (s *StreamSummary[T]) Get(e T) (Counter[T], bool) {
-	count, found := s.elements[e]
-	return count.Value, found
+func (s *StreamSummary[T]) Get(e T) (Count, bool) {
+	var count Count
+
+	node, found := s.elements[e]
+	if found {
+		count = Count{Count: node.Value.Count, Error: node.Value.Error}
+	}
+
+	return count, found
 }
 
-func New[T cmp.Ordered](capacity int) *StreamSummary[T] {
+// NewStreamSummary creates a new instance of a stream summary with the given capacity.
+// The error for frequency approximations is guaranteed to be bounded by Hits / capacity.
+func NewStreamSummary[T cmp.Ordered](capacity int) *StreamSummary[T] {
 	buckets := NewList[Bucket[T]]().PushHead(Bucket[T]{
 		counts: NewList[Counter[T]](),
 	})
@@ -158,7 +189,7 @@ func main() {
 	start := time.Now()
 
 	s := strings.Fields(string(contents))
-	ss := New[string](8)
+	ss := NewStreamSummary[string](8)
 	hits := 0
 
 	for _, e := range s {
