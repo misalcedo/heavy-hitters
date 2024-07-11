@@ -1,11 +1,14 @@
 package main
 
+// List is a doubly-linked list implementation with support for generics.
+// Support for generics allows List to avoid the indirection and memory allocations associated with interface types.
 type List[T any] struct {
 	len  int
 	head *Node[T]
 	tail *Node[T]
 }
 
+// Node is an internal element of a List. Nodes may also be detached from a list.
 type Node[T any] struct {
 	Value    T
 	previous *Node[T]
@@ -13,18 +16,22 @@ type Node[T any] struct {
 	list     *List[T]
 }
 
+// Previous node from the point of view of traversing the list from head to tail.
 func (n *Node[T]) Previous() *Node[T] {
 	return n.previous
 }
 
+// Next node from the point of view of traversing the list from head to tail.
 func (n *Node[T]) Next() *Node[T] {
 	return n.next
 }
 
+// NewList creates a new empty List.
 func NewList[T any]() *List[T] {
 	return &List[T]{}
 }
 
+// PushHead appends the given value as the new head of the list.
 func (l *List[T]) PushHead(value T) *List[T] {
 	node := new(Node[T])
 	node.Value = value
@@ -33,6 +40,9 @@ func (l *List[T]) PushHead(value T) *List[T] {
 	return l
 }
 
+// PushHeadNode appends the given node as the new head of the list.
+// The node will be detached from its previous owning list.
+// This enables re-using node pointers to avoid memory allocations and enable control over memory locations.
 func (l *List[T]) PushHeadNode(node *Node[T]) {
 	if node.list != nil {
 		node.RemoveSelf()
@@ -53,6 +63,7 @@ func (l *List[T]) PushHeadNode(node *Node[T]) {
 	l.len++
 }
 
+// PushTail appends the given value as the new tail of the list.
 func (l *List[T]) PushTail(value T) *List[T] {
 	node := new(Node[T])
 	node.Value = value
@@ -60,6 +71,9 @@ func (l *List[T]) PushTail(value T) *List[T] {
 	return l
 }
 
+// PushTailNode appends the given node as the new tail of the list.
+// The node will be detached from its previous owning list.
+// This enables re-using node pointers to avoid memory allocations and enable control over memory locations.
 func (l *List[T]) PushTailNode(node *Node[T]) {
 	if node.list != nil {
 		node.RemoveSelf()
@@ -80,14 +94,17 @@ func (l *List[T]) PushTailNode(node *Node[T]) {
 	l.len++
 }
 
+// Head fetches the head of the list without removing it.
 func (l *List[T]) Head() *Node[T] {
 	return l.head
 }
 
+// Tail fetches the tail of the list without removing it.
 func (l *List[T]) Tail() *Node[T] {
 	return l.tail
 }
 
+// RemoveHead pops the head from the list and returns its value.
 func (l *List[T]) RemoveHead() T {
 	if l.len == 0 {
 		var t T
@@ -106,6 +123,7 @@ func (l *List[T]) RemoveHead() T {
 	return head.Value
 }
 
+// RemoveTail pops the tail from the list and returns its value.
 func (l *List[T]) RemoveTail() T {
 	if l.len == 0 {
 		var t T
@@ -124,14 +142,18 @@ func (l *List[T]) RemoveTail() T {
 	return tail.Value
 }
 
+// Len is the size of the list.
 func (l *List[T]) Len() int {
 	return l.len
 }
 
+// Empty is a predicate that tests if the length of the list is zero.
 func (l *List[T]) Empty() bool {
 	return l.len == 0
 }
 
+// InsertPrevious inserts a node with the given value.
+// The new node will be this node's new previous from the point of view of traversing the list from head to tail.
 func (n *Node[T]) InsertPrevious(value T) *Node[T] {
 	if n == n.list.head {
 		n.list.PushHead(value)
@@ -152,6 +174,8 @@ func (n *Node[T]) InsertPrevious(value T) *Node[T] {
 	return node
 }
 
+// InsertNext inserts a node with the given value.
+// The new node will be this node's new next from the point of view of traversing the list from head to tail.
 func (n *Node[T]) InsertNext(value T) *Node[T] {
 	if n == n.list.tail {
 		n.list.PushTail(value)
@@ -172,6 +196,7 @@ func (n *Node[T]) InsertNext(value T) *Node[T] {
 	return node
 }
 
+// RemoveSelf detaches the current node from its parent list; enabling reuse of the node on other lists (or the same list).
 func (n *Node[T]) RemoveSelf() {
 	if n == n.list.tail {
 		n.list.RemoveTail()
