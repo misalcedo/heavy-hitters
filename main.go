@@ -228,15 +228,11 @@ func main() {
 		ss.Hit(e)
 	}
 
-	top, tGuaranteed := ss.Top(2)
-	if !tGuaranteed {
-		panic("unable to guarantee top hitters")
-	}
-
+	top, tGuaranteed := ss.Top(6)
 	frequent, fGuaranteed := ss.Frequent(0.1)
 
 	fmt.Printf("Elapsed: %s\n", time.Since(start))
-	fmt.Printf("Top elements: %v\n", top)
+	fmt.Printf("Top elements (guaranteed: %v): %v\n", tGuaranteed, top)
 
 	for i, e := range top {
 		count, found := ss.Get(e)
