@@ -247,6 +247,6 @@ func main() {
 		fmt.Printf("Element %d is %s with %v\n", i, e, count.Count)
 	}
 
-	fmt.Printf("Frequent elements: %v (guaranteed: %v)", frequent, fGuaranteed)
-	fmt.Printf("Total hits: %d, Decayed hits: %d", hits, ss.Hits())
+	fmt.Printf("Frequent elements: %v (guaranteed: %v)\n", frequent, fGuaranteed)
+	fmt.Printf("Total hits: %d, summarized hits: %d", hits, ss.Hits())
 }
