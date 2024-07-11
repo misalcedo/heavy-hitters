@@ -271,6 +271,57 @@ func TestList_InsertNextMiddle(t *testing.T) {
 	require.Equal(t, []int{1, 2, 3}, actual)
 }
 
+func TestList_RemoveSelfHead(t *testing.T) {
+	var zeroValue int
+
+	l := ListFrom([]int{1, 3})
+
+	require.Equal(t, 2, l.Len())
+	l.Head().RemoveSelf()
+	require.Equal(t, 1, l.Len())
+
+	actual := make([]int, 0, l.Len())
+	for v := l.RemoveHead(); v != zeroValue; v = l.RemoveHead() {
+		actual = append(actual, v)
+	}
+
+	require.Equal(t, []int{3}, actual)
+}
+
+func TestList_RemoveSelfTail(t *testing.T) {
+	var zeroValue int
+
+	l := ListFrom([]int{1, 3})
+
+	require.Equal(t, 2, l.Len())
+	l.Tail().RemoveSelf()
+	require.Equal(t, 1, l.Len())
+
+	actual := make([]int, 0, l.Len())
+	for v := l.RemoveHead(); v != zeroValue; v = l.RemoveHead() {
+		actual = append(actual, v)
+	}
+
+	require.Equal(t, []int{1}, actual)
+}
+
+func TestList_RemoveSelf(t *testing.T) {
+	var zeroValue int
+
+	l := ListFrom([]int{1, 2, 3})
+
+	require.Equal(t, 3, l.Len())
+	l.Head().Next().RemoveSelf()
+	require.Equal(t, 2, l.Len())
+
+	actual := make([]int, 0, l.Len())
+	for v := l.RemoveHead(); v != zeroValue; v = l.RemoveHead() {
+		actual = append(actual, v)
+	}
+
+	require.Equal(t, []int{1, 3}, actual)
+}
+
 func ListFrom[T any](values []T) *List[T] {
 	l := NewList[T]()
 	for _, v := range values {

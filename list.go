@@ -160,3 +160,19 @@ func (n *Node[T]) InsertNext(value T) *Node[T] {
 
 	return node
 }
+
+func (n *Node[T]) RemoveSelf() T {
+	if n == n.list.tail {
+		return n.list.RemoveTail()
+	}
+
+	if n == n.list.head {
+		return n.list.RemoveHead()
+	}
+
+	n.next.previous = n.previous
+	n.previous.next = n.next
+	n.list.len--
+
+	return n.Value
+}

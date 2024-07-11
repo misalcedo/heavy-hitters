@@ -12,11 +12,9 @@ import (
 // StreamSummary implements the [SpaceSaving] algorithm.
 //
 // [SpaceSaving]: https://www.cs.ucsb.edu/sites/default/files/documents/2005-23.pdf
-
 type StreamSummary[T cmp.Ordered] struct {
 	hits     int
-	capacity int
-	elements map[T]Counter[T]
+	elements map[T]*Node[Counter[T]]
 	buckets  *List[Bucket[T]]
 }
 
@@ -35,28 +33,28 @@ type Counter[T cmp.Ordered] struct {
 func (s *StreamSummary[T]) Hit(e T) {
 	s.hits++
 
-	//count, monitored := s.elements[e]
+	node, monitored := s.elements[e]
 
-	//if monitored {
-	//	s.counts.Remove(count)
-	//} else if len(s.elements) >= s.capacity {
-	//	count = s.counts.Min()
-	//
-	//	s.counts.Remove(count)
-	//	delete(s.elements, count.Element)
-	//	s.elements[e] = count
-	//
-	//	count.Element = e
-	//	count.Error = count.Count
-	//} else {
-	//	count = &Counter[T]{
-	//		Element: e,
-	//	}
-	//	s.elements[e] = count
-	//}
-	//
-	//count.Count += 1
-	//s.counts.Insert(count)
+	if !monitored {
+		// Get the minimum node
+		node = s.buckets.Tail().Value.counts.Tail()
+		count := node.Value
+		delete(s.elements, count.Key)
+
+		count.Key = e
+		count.Error = count.Count
+		s.elements[e] = node
+	}
+
+	s.incrementCounter(node)
+}
+
+func (s *StreamSummary[T]) incrementCounter(node *Node[Counter[T]]) {
+	count := node.Value
+	bucket := count.bucket
+	count.bucket = bucket.Next()
+
+	node.RemoveSelf()
 }
 
 func (s *StreamSummary[T]) Top(k int) ([]T, bool) {
@@ -67,9 +65,10 @@ func (s *StreamSummary[T]) Top(k int) ([]T, bool) {
 	previousGuaranteedCount := math.MaxInt
 
 OuterLoop:
-	for b := s.buckets.Tail(); b != nil; b = b.Previous() {
-		for c := b.Value.counts.Tail(); c != nil; c = c.Previous() {
+	for b := s.buckets.Head(); b != nil; b = b.Next() {
+		for c := b.Value.counts.Head(); c != nil; c = c.Next() {
 			if len(topK) >= k {
+				guaranteed = c.Value.Count <= minGuaranteedCount
 				break OuterLoop
 			}
 
@@ -91,8 +90,8 @@ func (s *StreamSummary[T]) Frequent(phi float64) ([]T, bool) {
 	guaranteed := true
 
 OuterLoop:
-	for b := s.buckets.Tail(); b != nil; b = b.Previous() {
-		for c := b.Value.counts.Tail(); c != nil; c = c.Previous() {
+	for b := s.buckets.Head(); b != nil; b = b.Next() {
+		for c := b.Value.counts.Head(); c != nil; c = c.Next() {
 			if b.Value.count <= threshold {
 				break OuterLoop
 			}
@@ -111,16 +110,27 @@ func (s *StreamSummary[T]) Hits() int {
 
 func (s *StreamSummary[T]) Get(e T) (Counter[T], bool) {
 	count, found := s.elements[e]
-	return count, found
+	return count.Value, found
 }
 
 func New[T cmp.Ordered](capacity int) *StreamSummary[T] {
+	buckets := NewList[Bucket[T]]().PushHead(Bucket[T]{
+		counts: NewList[Counter[T]](),
+	})
+	bucket := buckets.Tail()
+
+	for i := 0; i < capacity; i++ {
+		bucket.Value.counts.PushTail(Counter[T]{
+			bucket: bucket,
+		})
+	}
+
 	return &StreamSummary[T]{
-		capacity: capacity,
-		elements: make(map[T]Counter[T]),
-		buckets:  NewList[Bucket[T]](),
+		elements: make(map[T]*Node[Counter[T]]),
+		buckets:  buckets,
 	}
 }
+
 func main() {
 	path := os.Args[1]
 	contents, err := os.ReadFile(path)
