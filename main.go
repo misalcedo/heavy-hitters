@@ -51,10 +51,21 @@ func (s *StreamSummary[T]) Hit(e T) {
 
 func (s *StreamSummary[T]) incrementCounter(node *Node[Counter[T]]) {
 	count := node.Value
-	bucket := count.bucket
-	count.bucket = bucket.Next()
+	oldBucket := count.bucket
+	count.bucket = oldBucket.Next()
 
 	node.RemoveSelf()
+	count.Count++
+
+	if count.bucket != nil && count.Count == count.bucket.Value.count {
+		count.bucket.Value.counts.PushTail(count)
+	} else {
+		newBucket := oldBucket.InsertNext(Bucket[T]{
+			count:  count.Count,
+			counts: NewList[Counter[T]](),
+		})
+		newBucket.Value.counts.PushTailNode(node)
+	}
 }
 
 func (s *StreamSummary[T]) Top(k int) ([]T, bool) {

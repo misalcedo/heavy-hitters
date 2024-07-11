@@ -26,47 +26,58 @@ func NewList[T any]() *List[T] {
 }
 
 func (l *List[T]) PushHead(value T) *List[T] {
-	if l.len == 0 {
-		l.head = &Node[T]{
-			Value: value,
-			list:  l,
-		}
-		l.tail = l.head
-	} else {
-		oldHead := l.head
-		l.head = &Node[T]{
-			Value: value,
-			next:  oldHead,
-			list:  l,
-		}
-		oldHead.previous = l.head
-	}
-
-	l.len++
+	l.PushHeadNode(&Node[T]{
+		Value: value,
+	})
 
 	return l
 }
 
-func (l *List[T]) PushTail(value T) *List[T] {
+func (l *List[T]) PushHeadNode(node *Node[T]) {
+	if node.list != nil {
+		node.RemoveSelf()
+	}
+
+	node.list = l
+
 	if l.len == 0 {
-		l.tail = &Node[T]{
-			Value: value,
-			list:  l,
-		}
-		l.head = l.tail
+		l.head = node
+		l.tail = l.head
 	} else {
-		oldTail := l.tail
-		l.tail = &Node[T]{
-			Value:    value,
-			previous: oldTail,
-			list:     l,
-		}
-		oldTail.next = l.tail
+		oldHead := l.head
+		l.head = node
+		node.next = oldHead
+		oldHead.previous = node
 	}
 
 	l.len++
+}
 
+func (l *List[T]) PushTail(value T) *List[T] {
+	l.PushTailNode(&Node[T]{
+		Value: value,
+	})
 	return l
+}
+
+func (l *List[T]) PushTailNode(node *Node[T]) {
+	if node.list != nil {
+		node.RemoveSelf()
+	}
+
+	node.list = l
+
+	if l.len == 0 {
+		l.tail = node
+		l.head = node
+	} else {
+		oldTail := l.tail
+		l.tail = node
+		node.previous = oldTail
+		oldTail.next = node
+	}
+
+	l.len++
 }
 
 func (l *List[T]) Head() *Node[T] {
@@ -161,18 +172,24 @@ func (n *Node[T]) InsertNext(value T) *Node[T] {
 	return node
 }
 
-func (n *Node[T]) RemoveSelf() T {
+func (n *Node[T]) RemoveSelf() {
 	if n == n.list.tail {
-		return n.list.RemoveTail()
+		n.list.RemoveTail()
+	} else if n == n.list.head {
+		n.list.RemoveHead()
+	} else {
+		if n.next != nil {
+			n.next.previous = n.previous
+		}
+
+		if n.previous != nil {
+			n.previous.next = n.next
+		}
+
+		n.list.len--
 	}
 
-	if n == n.list.head {
-		return n.list.RemoveHead()
-	}
-
-	n.next.previous = n.previous
-	n.previous.next = n.next
-	n.list.len--
-
-	return n.Value
+	n.previous = nil
+	n.next = nil
+	n.list = nil
 }
