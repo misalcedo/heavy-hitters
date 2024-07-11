@@ -16,6 +16,7 @@ type HeavyHitters[T cmp.Ordered] interface {
 	// Hits counts the total number of hits for all elements.
 	Hits() int
 	// Get retrieves the approximated frequency for the given element, with a bounds on the error.
+	// The boolean is true the implementation has an approximation for the element's count.
 	Get(T) (Count, bool)
 	// Frequent finds the set of elements that contribute more than phi * Hits of the total frequency.
 	// The slice is returned in descending order of frequency.
