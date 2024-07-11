@@ -33,22 +33,22 @@ type HeavyHitters[T cmp.Ordered] interface {
 // [SpaceSaving]: https://www.cs.ucsb.edu/sites/default/files/documents/2005-23.pdf
 type StreamSummary[T cmp.Ordered] struct {
 	hits     int
-	elements map[T]*Node[Counter[T]]
-	buckets  *List[Bucket[T]]
+	elements map[T]*Node[frequencyCounter[T]]
+	buckets  *List[frequencyBucket[T]]
 }
 
-// Bucket maintains a list of counts with the same frequency.
+// frequencyBucket maintains a list of counts with the same frequency.
 // The head of the list is the maximum frequency and the tail is the minimum.
-type Bucket[T cmp.Ordered] struct {
+type frequencyBucket[T cmp.Ordered] struct {
 	count  int
-	counts *List[Counter[T]]
+	counts *List[frequencyCounter[T]]
 }
 
-type Counter[T cmp.Ordered] struct {
+type frequencyCounter[T cmp.Ordered] struct {
 	Key    T
 	Count  int
 	Error  int
-	bucket *Node[Bucket[T]]
+	bucket *Node[frequencyBucket[T]]
 }
 
 type Count struct {
@@ -56,6 +56,7 @@ type Count struct {
 	Error int
 }
 
+// Hit increments the frequency for the given element, then returns an approximation of the current frequency.
 func (s *StreamSummary[T]) Hit(e T) Count {
 	s.hits++
 
@@ -76,7 +77,7 @@ func (s *StreamSummary[T]) Hit(e T) Count {
 	return Count{Count: node.Value.Count, Error: node.Value.Error}
 }
 
-func (s *StreamSummary[T]) incrementCounter(node *Node[Counter[T]]) {
+func (s *StreamSummary[T]) incrementCounter(node *Node[frequencyCounter[T]]) {
 	oldBucket := node.Value.bucket
 
 	node.Value.bucket = oldBucket.Previous()
@@ -85,9 +86,9 @@ func (s *StreamSummary[T]) incrementCounter(node *Node[Counter[T]]) {
 	if node.Value.bucket != nil && node.Value.Count == node.Value.bucket.Value.count {
 		node.Value.bucket.Value.counts.PushTailNode(node)
 	} else {
-		newBucket := oldBucket.InsertPrevious(Bucket[T]{
+		newBucket := oldBucket.InsertPrevious(frequencyBucket[T]{
 			count:  node.Value.Count,
-			counts: NewList[Counter[T]](),
+			counts: NewList[frequencyCounter[T]](),
 		})
 		node.Value.bucket = newBucket
 		newBucket.Value.counts.PushTailNode(node)
@@ -98,6 +99,9 @@ func (s *StreamSummary[T]) incrementCounter(node *Node[Counter[T]]) {
 	}
 }
 
+// Top finds the top-k elements seen in the stream.
+// The slice is returned in descending order of frequency.
+// The boolean is true iff the order of the top-k elements is correct and the implementation guarantees they are the actual top-k, irrespective of the errors.
 func (s *StreamSummary[T]) Top(k int) ([]T, bool) {
 	topK := make([]T, 0, k)
 	order := true
@@ -125,6 +129,9 @@ OuterLoop:
 	return topK, guaranteed && order
 }
 
+// Frequent finds the set of elements that contribute more than phi * Hits of the total frequency.
+// The slice is returned in descending order of frequency.
+// The boolean is true iff the returned slice is guaranteed to all be frequent elements, irrespective of the errors.
 func (s *StreamSummary[T]) Frequent(phi float64) ([]T, bool) {
 	threshold := int(math.Ceil(phi * float64(s.hits)))
 	frequent := make([]T, 0)
@@ -145,10 +152,12 @@ OuterLoop:
 	return frequent, guaranteed
 }
 
+// Hits counts the total number of hits for all elements.
 func (s *StreamSummary[T]) Hits() int {
 	return s.hits
 }
 
+// Get retrieves the approximated frequency for the given element, with a bounds on the error.
 func (s *StreamSummary[T]) Get(e T) (Count, bool) {
 	var count Count
 
@@ -163,19 +172,19 @@ func (s *StreamSummary[T]) Get(e T) (Count, bool) {
 // NewStreamSummary creates a new instance of a stream summary with the given capacity.
 // The error for frequency approximations is guaranteed to be bounded by Hits / capacity.
 func NewStreamSummary[T cmp.Ordered](capacity int) *StreamSummary[T] {
-	buckets := NewList[Bucket[T]]().PushHead(Bucket[T]{
-		counts: NewList[Counter[T]](),
+	buckets := NewList[frequencyBucket[T]]().PushHead(frequencyBucket[T]{
+		counts: NewList[frequencyCounter[T]](),
 	})
 	bucket := buckets.Tail()
 
 	for i := 0; i < capacity; i++ {
-		bucket.Value.counts.PushTail(Counter[T]{
+		bucket.Value.counts.PushTail(frequencyCounter[T]{
 			bucket: bucket,
 		})
 	}
 
 	return &StreamSummary[T]{
-		elements: make(map[T]*Node[Counter[T]]),
+		elements: make(map[T]*Node[frequencyCounter[T]]),
 		buckets:  buckets,
 	}
 }
