@@ -54,7 +54,7 @@ func (n NaiveHeavyHitters[T]) Frequent(phi float64) ([]T, bool) {
 	return frequent, true
 }
 
-func (n NaiveHeavyHitters[T]) Top(k int) ([]T, bool) {
+func (n NaiveHeavyHitters[T]) Top(k int) ([]T, bool, bool) {
 	top := make([]T, 0, len(n.counts))
 
 	for element := range n.counts {
@@ -65,7 +65,7 @@ func (n NaiveHeavyHitters[T]) Top(k int) ([]T, bool) {
 		return n.counts[top[i]] > n.counts[top[j]]
 	})
 
-	return top[0:k], true
+	return top[0:k], true, true
 }
 
 func NewNaive[T cmp.Ordered]() NaiveHeavyHitters[T] {

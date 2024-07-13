@@ -2,10 +2,10 @@ package main
 
 import (
 	"cmp"
+	"flag"
 	"fmt"
 	"math"
-	"os"
-	"strings"
+	"math/rand"
 	"time"
 )
 
@@ -24,8 +24,9 @@ type HeavyHitters[T cmp.Ordered] interface {
 	Frequent(phi float64) ([]T, bool)
 	// Top finds the top-k elements seen in the stream.
 	// The slice is returned in descending order of frequency.
-	// The boolean is true iff the order of the top-k elements is correct and the implementation guarantees they are the actual top-k, irrespective of the errors.
-	Top(k int) ([]T, bool)
+	// The first boolean is true iff the order of the top-k elements is correct and the implementation guarantees they are the actual top-k, irrespective of the errors.
+	// The second boolean is true iff the implementation guarantees they are the actual top-k, irrespective of the errors.
+	Top(k int) ([]T, bool, bool)
 }
 
 // StreamSummary is a data structure used to implement the [SpaceSaving] algorithm.
@@ -121,8 +122,9 @@ func (s *StreamSummary[T]) incrementCounter(node *Node[frequencyCounter[T]]) {
 
 // Top finds the top-k elements seen in the stream.
 // The slice is returned in descending order of frequency.
-// The boolean is true iff the order of the top-k elements is correct and the implementation guarantees they are the actual top-k, irrespective of the errors.
-func (s *StreamSummary[T]) Top(k int) ([]T, bool) {
+// The first boolean is true iff the order of the top-k elements is correct and the implementation guarantees they are the actual top-k, irrespective of the errors.
+// The second boolean is true iff the implementation guarantees they are the actual top-k, irrespective of the errors.
+func (s *StreamSummary[T]) Top(k int) ([]T, bool, bool) {
 	topK := make([]T, 0, k)
 	order := true
 	guaranteed := false
@@ -146,7 +148,7 @@ OuterLoop:
 		}
 	}
 
-	return topK, guaranteed && order
+	return topK, order, guaranteed
 }
 
 // Frequent finds the set of elements that contribute more than phi * Hits of the total frequency.
@@ -211,38 +213,52 @@ func NewStreamSummary[T cmp.Ordered](capacity int) *StreamSummary[T] {
 }
 
 func main() {
-	path := os.Args[1]
-	contents, err := os.ReadFile(path)
-	if err != nil {
-		panic(err)
-	}
+	var hits int
+	var seed int64
+	var s, v float64
+	var imax uint64
+
+	flag.IntVar(&hits, "h", 1_000_000, "number of hits in total")
+	flag.Int64Var(&seed, "seed", time.Now().UTC().UnixNano(), "seed for the random number generator")
+	flag.Float64Var(&s, "s", 2.0, "s parameter for Zipf generator")
+	flag.Float64Var(&v, "v", 3.0, "v parameter for Zipf generator")
+	flag.Uint64Var(&imax, "imax", 100_000, "imax parameter for Zipf generator")
+	flag.Parse()
+
+	fmt.Printf("Running simulation with seed %d.\n", seed)
+
+	generator := rand.NewZipf(rand.New(rand.NewSource(seed)), v, s, imax)
 	start := time.Now()
+	ss := NewStreamSummary[uint64](100)
+	naive := NewNaive[uint64]()
 
-	s := strings.Fields(string(contents))
-	ss := NewStreamSummary[string](8)
-	hits := 0
-
-	for _, e := range s {
-		hits++
+	for i := 0; i < hits; i++ {
+		e := generator.Uint64()
 
 		ss.Hit(e)
+		naive.Hit(e)
 	}
 
-	top, tGuaranteed := ss.Top(6)
+	top, tGuaranteed, order := ss.Top(10)
 	frequent, fGuaranteed := ss.Frequent(0.1)
+	naiveTop, _, _ := naive.Top(10)
 
 	fmt.Printf("Elapsed: %s\n", time.Since(start))
-	fmt.Printf("Top elements (guaranteed: %v): %v\n", tGuaranteed, top)
+	fmt.Printf("SpaceSaving Top elements (guaranteed: %v, order: %v): %v\n", tGuaranteed, order, top)
+	fmt.Printf("Naive Top elements: %v\n", naiveTop)
+	fmt.Println("Comparison of elements for SpaceSaving v. Naive.")
 
 	for i, e := range top {
 		count, found := ss.Get(e)
-		if !found {
+		naiveCount, naiveFound := naive.Get(e)
+
+		if !found || !naiveFound {
 			panic("unable to find element")
 		}
 
-		fmt.Printf("Element %d is %s with %v\n", i, e, count.Count)
+		fmt.Printf("Top element %d is %d: %d v. %v\n", i, e, count.Count, naiveCount.Count)
 	}
 
 	fmt.Printf("Frequent elements: %v (guaranteed: %v)\n", frequent, fGuaranteed)
-	fmt.Printf("Total hits: %d, summarized hits: %d", hits, ss.Hits())
+	fmt.Printf("Total hits: %d, summarized hits: %d\n", hits, ss.Hits())
 }
