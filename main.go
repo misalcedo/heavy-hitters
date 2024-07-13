@@ -94,7 +94,7 @@ func (s *StreamSummary[T]) incrementCounter(node *Node[frequencyCounter[T]]) {
 	// The previous moves towards the head (assuming head-to-tail traversal).
 	// Moving buckets allows us to jump over any other counts with the same frequency.
 	node.Value.bucket = oldBucket.Previous()
-	node.Value.count++
+	node.Value.count += 1
 
 	if node.Value.bucket != nil && node.Value.count == node.Value.bucket.Value.count {
 		// If the new bucket exists (the old bucket was not the head), then add this node to the tail.
