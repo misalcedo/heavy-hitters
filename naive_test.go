@@ -22,8 +22,9 @@ func TestNaiveHeavyHitters(t *testing.T) {
 	require.Equal(t, 3, count.Count)
 	require.Equal(t, 0, count.Error)
 
-	top, guaranteed := hh.Top(2)
+	top, guaranteed, order := hh.Top(2)
 	require.True(t, guaranteed)
+	require.True(t, order)
 	require.Equal(t, []int{5, 3}, top)
 
 	frequent, guaranteed := hh.Frequent(0.1)

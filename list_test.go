@@ -272,8 +272,6 @@ func TestList_InsertNextMiddle(t *testing.T) {
 }
 
 func TestList_RemoveSelfHead(t *testing.T) {
-	var zeroValue int
-
 	l := ListFrom([]int{1, 3})
 
 	require.Equal(t, 2, l.Len())
@@ -281,16 +279,14 @@ func TestList_RemoveSelfHead(t *testing.T) {
 	require.Equal(t, 1, l.Len())
 
 	actual := make([]int, 0, l.Len())
-	for v := l.RemoveHead(); v != zeroValue; v = l.RemoveHead() {
-		actual = append(actual, v)
+	for v := l.Tail(); v != nil; v = v.Previous() {
+		actual = append(actual, v.Value)
 	}
 
 	require.Equal(t, []int{3}, actual)
 }
 
 func TestList_RemoveSelfTail(t *testing.T) {
-	var zeroValue int
-
 	l := ListFrom([]int{1, 3})
 
 	require.Equal(t, 2, l.Len())
@@ -298,16 +294,14 @@ func TestList_RemoveSelfTail(t *testing.T) {
 	require.Equal(t, 1, l.Len())
 
 	actual := make([]int, 0, l.Len())
-	for v := l.RemoveHead(); v != zeroValue; v = l.RemoveHead() {
-		actual = append(actual, v)
+	for v := l.Head(); v != nil; v = v.Next() {
+		actual = append(actual, v.Value)
 	}
 
 	require.Equal(t, []int{1}, actual)
 }
 
 func TestList_RemoveSelf(t *testing.T) {
-	var zeroValue int
-
 	l := ListFrom([]int{1, 2, 3})
 
 	require.Equal(t, 3, l.Len())
@@ -315,11 +309,11 @@ func TestList_RemoveSelf(t *testing.T) {
 	require.Equal(t, 2, l.Len())
 
 	actual := make([]int, 0, l.Len())
-	for v := l.RemoveHead(); v != zeroValue; v = l.RemoveHead() {
-		actual = append(actual, v)
+	for v := l.Tail(); v != nil; v = v.Previous() {
+		actual = append(actual, v.Value)
 	}
 
-	require.Equal(t, []int{1, 3}, actual)
+	require.Equal(t, []int{3, 1}, actual)
 }
 
 func ListFrom[T any](values []T) *List[T] {

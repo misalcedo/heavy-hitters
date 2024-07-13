@@ -112,12 +112,15 @@ func (l *List[T]) RemoveHead() T {
 	}
 
 	head := l.head
-	l.head = l.head.next
 
+	l.head = l.head.next
 	l.len--
+
 	if l.len == 0 {
 		l.head = nil
 		l.tail = nil
+	} else {
+		l.head.previous = nil
 	}
 
 	return head.Value
@@ -131,12 +134,15 @@ func (l *List[T]) RemoveTail() T {
 	}
 
 	tail := l.tail
-	l.tail = l.tail.previous
 
+	l.tail = l.tail.previous
 	l.len--
+
 	if l.len == 0 {
 		l.head = nil
 		l.tail = nil
+	} else {
+		l.tail.next = nil
 	}
 
 	return tail.Value

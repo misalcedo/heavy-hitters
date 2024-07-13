@@ -65,7 +65,7 @@ func (n NaiveHeavyHitters[T]) Top(k int) ([]T, bool, bool) {
 		return n.counts[top[i]] > n.counts[top[j]]
 	})
 
-	return top[0:k], true, true
+	return top[0:min(k, len(top))], true, true
 }
 
 func NewNaive[T cmp.Ordered]() NaiveHeavyHitters[T] {

@@ -22,7 +22,8 @@ func TestSpaceSaving(t *testing.T) {
 	require.Equal(t, 3, count.Count)
 	require.Equal(t, 0, count.Error)
 
-	top, guaranteed := hh.Top(2)
+	top, order, guaranteed := hh.Top(2)
+	require.True(t, order)
 	require.False(t, guaranteed)
 	require.Equal(t, []int{5, 2}, top)
 
@@ -67,4 +68,23 @@ func TestSpaceSaving(t *testing.T) {
 	count, found = hh.Get(2)
 	require.True(t, found)
 	require.Equal(t, Count{Count: 2, Error: 1}, count)
+}
+
+func TestSpaceSaving_ZeroValue(t *testing.T) {
+	stream := []int{0, 1, 0}
+	hh := NewStreamSummary[int](4)
+
+	for _, e := range stream {
+		hh.Hit(e)
+	}
+
+	count0, found0 := hh.Get(0)
+	require.True(t, found0)
+	require.Equal(t, 2, count0.Count)
+	require.Equal(t, 0, count0.Error)
+
+	count1, found1 := hh.Get(1)
+	require.True(t, found1)
+	require.Equal(t, 1, count1.Count)
+	require.Equal(t, 0, count1.Error)
 }

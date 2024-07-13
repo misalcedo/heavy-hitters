@@ -73,7 +73,11 @@ func (s *StreamSummary[T]) Hit(e T) Count {
 		// get the node for element with least hits
 		// ties can be broken arbitrarily
 		node = s.buckets.Tail().Value.counts.Tail()
-		delete(s.elements, node.Value.key)
+
+		// avoid deleting the element from the elements if e is the zero value.
+		if node.Value.count > 0 {
+			delete(s.elements, node.Value.key)
+		}
 
 		// replace the min with e
 		node.Value.key = e
