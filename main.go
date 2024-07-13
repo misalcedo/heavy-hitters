@@ -238,7 +238,7 @@ func main() {
 	flag.Int64Var(&seed, "seed", time.Now().UTC().UnixNano(), "seed for the random number generator")
 	flag.Float64Var(&a, "a", 1.08, "a parameter for Zipf's law")
 	flag.Float64Var(&b, "b", 2, "b parameter for Zipf's law'")
-	flag.Uint64Var(&imax, "imax", 100_000, "imax parameter for Zipf generator")
+	flag.Uint64Var(&imax, "imax", math.MaxUint64, "imax parameter for Zipf generator")
 	flag.Parse()
 
 	fmt.Printf("Running simulation with seed %d.\n", seed)
@@ -246,7 +246,7 @@ func main() {
 	rng := rand.New(rand.NewSource(seed))
 	generator := rand.NewZipf(rng, a, b, imax)
 	start := time.Now()
-	ss := NewStreamSummary[uint64](1_000_000)
+	ss := NewStreamSummary[uint64](10)
 
 	for i := 0; i < hits; i++ {
 		if zipf {
