@@ -137,6 +137,10 @@ func (s *StreamSummary[T]) Top(k int) ([]T, bool, bool) {
 
 OuterLoop:
 	for b := s.buckets.Head(); b != nil; b = b.Next() {
+		if b.Value.count == 0 {
+			continue
+		}
+
 		for c := b.Value.counts.Head(); c != nil; c = c.Next() {
 			if len(topK) >= k {
 				guaranteed = c.Value.count <= minGuaranteedCount
@@ -168,6 +172,10 @@ OuterLoop:
 		if b.Value.count <= threshold {
 			// all counts in the same bucket have the same frequency, so we only need to test this predicate once per bucket.
 			break OuterLoop
+		}
+
+		if b.Value.count == 0 {
+			continue
 		}
 
 		for c := b.Value.counts.Head(); c != nil; c = c.Next() {
@@ -219,50 +227,50 @@ func NewStreamSummary[T cmp.Ordered](capacity int) *StreamSummary[T] {
 func main() {
 	var hits int
 	var seed int64
-	var s, v float64
+	var zipf bool
+
+	// See https://en.wikipedia.org/wiki/Zipf%27s_law
+	var a, b float64
 	var imax uint64
 
 	flag.IntVar(&hits, "h", 1_000_000, "number of hits in total")
+	flag.BoolVar(&zipf, "z", true, "use a zipf distribution")
 	flag.Int64Var(&seed, "seed", time.Now().UTC().UnixNano(), "seed for the random number generator")
-	flag.Float64Var(&s, "s", 2.0, "s parameter for Zipf generator")
-	flag.Float64Var(&v, "v", 3.0, "v parameter for Zipf generator")
+	flag.Float64Var(&a, "a", 1.08, "a parameter for Zipf's law")
+	flag.Float64Var(&b, "b", 2, "b parameter for Zipf's law'")
 	flag.Uint64Var(&imax, "imax", 100_000, "imax parameter for Zipf generator")
 	flag.Parse()
 
 	fmt.Printf("Running simulation with seed %d.\n", seed)
 
-	generator := rand.NewZipf(rand.New(rand.NewSource(seed)), v, s, imax)
+	rng := rand.New(rand.NewSource(seed))
+	generator := rand.NewZipf(rng, a, b, imax)
 	start := time.Now()
-	ss := NewStreamSummary[uint64](100)
-	naive := NewNaive[uint64]()
+	ss := NewStreamSummary[uint64](1_000_000)
 
 	for i := 0; i < hits; i++ {
-		e := generator.Uint64()
-
-		ss.Hit(e)
-		naive.Hit(e)
+		if zipf {
+			ss.Hit(generator.Uint64())
+		} else {
+			ss.Hit(uint64(rng.NormFloat64()))
+		}
 	}
 
-	top, tGuaranteed, order := ss.Top(10)
 	frequent, fGuaranteed := ss.Frequent(0.1)
-	naiveTop, _, _ := naive.Top(10)
+	top, tGuaranteed, order := ss.Top(10)
 
 	fmt.Printf("Elapsed: %s\n", time.Since(start))
-	fmt.Printf("SpaceSaving Top elements (guaranteed: %v, order: %v): %v\n", tGuaranteed, order, top)
-	fmt.Printf("Naive Top elements: %v\n", naiveTop)
-	fmt.Println("Comparison of elements for SpaceSaving v. Naive.")
+	fmt.Printf("Total hits: %d, summarized hits: %d\n", hits, ss.Hits())
+	fmt.Printf("Frequent elements: %v (guaranteed: %v)\n", frequent, fGuaranteed)
+	fmt.Printf("Top elements (guaranteed: %v, order: %v): %v\n", tGuaranteed, order, top)
 
 	for i, e := range top {
 		count, found := ss.Get(e)
-		naiveCount, naiveFound := naive.Get(e)
 
-		if !found || !naiveFound {
+		if !found {
 			panic("unable to find element")
 		}
 
-		fmt.Printf("Top element %d is %d: %d v. %v\n", i, e, count.Count, naiveCount.Count)
+		fmt.Printf("Top-%d is %d: {count: %d, error: %d}}\n", i+1, e, count.Count, count.Error)
 	}
-
-	fmt.Printf("Frequent elements: %v (guaranteed: %v)\n", frequent, fGuaranteed)
-	fmt.Printf("Total hits: %d, summarized hits: %d\n", hits, ss.Hits())
 }
