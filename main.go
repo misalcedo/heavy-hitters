@@ -257,7 +257,7 @@ func main() {
 	}
 
 	frequent, fGuaranteed := ss.Frequent(0.1)
-	top, tGuaranteed, order := ss.Top(10)
+	top, tGuaranteed, order := ss.Top(5)
 
 	fmt.Printf("Elapsed: %s\n", time.Since(start))
 	fmt.Printf("Total hits: %d, summarized hits: %d\n", hits, ss.Hits())
