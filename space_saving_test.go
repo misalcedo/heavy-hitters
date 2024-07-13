@@ -2,6 +2,7 @@ package heavy_hitters
 
 import (
 	"github.com/stretchr/testify/require"
+	"math"
 	"math/rand"
 	"testing"
 	"time"
@@ -96,28 +97,40 @@ func BenchmarkSpaceSaving(b *testing.B) {
 
 	s := 1.08
 	v := 2.0
-	imax := uint64(100_000)
+	imax := uint64(math.MaxUint64)
 
 	generator := rand.NewZipf(rand.New(rand.NewSource(seed)), s, v, imax)
-	ss := NewStreamSummary[uint64](10)
+	ss := NewStreamSummary[uint64](100)
 
-	for i := 0; i < b.N; i++ {
-		ss.Hit(generator.Uint64())
-	}
+	b.Run("Hit", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			ss.Hit(generator.Uint64())
+		}
+	})
 
-	frequent, fGuaranteed := ss.Frequent(0.001)
-	require.Equal(b, []uint64{0}, frequent)
-	require.True(b, fGuaranteed)
+	b.Run("Top", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			ss.Top(5)
+		}
+	})
 
 	top, tGuaranteed, order := ss.Top(5)
 	require.Equal(b, []uint64{0, 1, 2, 3, 4}, top)
 	require.True(b, tGuaranteed)
 	require.True(b, order)
 
-	require.Equal(b, b.N, ss.Hits())
-
 	for _, e := range top {
 		_, found := ss.Get(e)
 		require.True(b, found)
 	}
+
+	b.Run("Frequent", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			ss.Frequent(0.01)
+		}
+	})
+
+	frequent, fGuaranteed := ss.Frequent(0.01)
+	require.Equal(b, []uint64{0, 1, 2, 3, 4, 5}, frequent)
+	require.True(b, fGuaranteed)
 }

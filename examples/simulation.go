@@ -26,12 +26,12 @@ func main() {
 	flag.Uint64Var(&imax, "imax", math.MaxUint64, "imax parameter for Zipf generator")
 	flag.Parse()
 
-	fmt.Printf("Running simulation with seed %d.\n", seed)
+	fmt.Printf("Running simulation with seed %d (zipf: %v).\n", seed, zipf)
 
 	rng := rand.New(rand.NewSource(seed))
 	generator := rand.NewZipf(rng, a, b, imax)
 	start := time.Now()
-	ss := hh.NewStreamSummary[uint64](10)
+	ss := hh.NewStreamSummary[uint64](100)
 
 	for i := 0; i < hits; i++ {
 		if zipf {
@@ -41,7 +41,7 @@ func main() {
 		}
 	}
 
-	frequent, fGuaranteed := ss.Frequent(0.001)
+	frequent, fGuaranteed := ss.Frequent(0.01)
 	top, tGuaranteed, order := ss.Top(5)
 
 	fmt.Printf("Elapsed: %s\n", time.Since(start))
