@@ -1,33 +1,9 @@
-package main
+package heavy_hitters
 
 import (
 	"cmp"
-	"flag"
-	"fmt"
 	"math"
-	"math/rand"
-	"time"
 )
-
-// HeavyHitters provides approximations for finding frequent and top-k elements.
-type HeavyHitters[T cmp.Ordered] interface {
-	// Hit increments the frequency for the given element, then returns an approximation of the current frequency.
-	Hit(T) Count
-	// Hits counts the total number of hits for all elements.
-	Hits() int
-	// Get retrieves the approximated frequency for the given element, with a bounds on the error.
-	// The boolean is true the implementation has an approximation for the element's count.
-	Get(T) (Count, bool)
-	// Frequent finds the set of elements that contribute more than phi * Hits of the total frequency.
-	// The slice is returned in descending order of frequency.
-	// The boolean is true iff the returned slice is guaranteed to all be frequent elements, irrespective of the errors.
-	Frequent(phi float64) ([]T, bool)
-	// Top finds the top-k elements seen in the stream.
-	// The slice is returned in descending order of frequency.
-	// The first boolean is true iff the order of the top-k elements is correct and the implementation guarantees they are the actual top-k, irrespective of the errors.
-	// The second boolean is true iff the implementation guarantees they are the actual top-k, irrespective of the errors.
-	Top(k int) ([]T, bool, bool)
-}
 
 // StreamSummary is a data structure used to implement the [SpaceSaving] algorithm.
 // The [SpaceSaving] algorithm reports both frequent and top-k elements with tight guarantees on errors.
@@ -56,11 +32,6 @@ type frequencyCounter[T cmp.Ordered] struct {
 	count  int
 	error  int
 	bucket *Node[frequencyBucket[T]]
-}
-
-type Count struct {
-	Count int
-	Error int
 }
 
 // Hit increments the frequency for the given element, then returns an approximation of the current frequency.
@@ -221,56 +192,5 @@ func NewStreamSummary[T cmp.Ordered](capacity int) *StreamSummary[T] {
 	return &StreamSummary[T]{
 		elements: make(map[T]*Node[frequencyCounter[T]]),
 		buckets:  buckets,
-	}
-}
-
-func main() {
-	var hits int
-	var seed int64
-	var zipf bool
-
-	// See https://en.wikipedia.org/wiki/Zipf%27s_law
-	var a, b float64
-	var imax uint64
-
-	flag.IntVar(&hits, "h", 1_000_000, "number of hits in total")
-	flag.BoolVar(&zipf, "z", true, "use a zipf distribution")
-	flag.Int64Var(&seed, "seed", time.Now().UTC().UnixNano(), "seed for the random number generator")
-	flag.Float64Var(&a, "a", 1.08, "a parameter for Zipf's law")
-	flag.Float64Var(&b, "b", 2, "b parameter for Zipf's law'")
-	flag.Uint64Var(&imax, "imax", math.MaxUint64, "imax parameter for Zipf generator")
-	flag.Parse()
-
-	fmt.Printf("Running simulation with seed %d.\n", seed)
-
-	rng := rand.New(rand.NewSource(seed))
-	generator := rand.NewZipf(rng, a, b, imax)
-	start := time.Now()
-	ss := NewStreamSummary[uint64](10)
-
-	for i := 0; i < hits; i++ {
-		if zipf {
-			ss.Hit(generator.Uint64())
-		} else {
-			ss.Hit(uint64(rng.NormFloat64()))
-		}
-	}
-
-	frequent, fGuaranteed := ss.Frequent(0.1)
-	top, tGuaranteed, order := ss.Top(5)
-
-	fmt.Printf("Elapsed: %s\n", time.Since(start))
-	fmt.Printf("Total hits: %d, summarized hits: %d\n", hits, ss.Hits())
-	fmt.Printf("Frequent elements: %v (guaranteed: %v)\n", frequent, fGuaranteed)
-	fmt.Printf("Top elements (guaranteed: %v, order: %v): %v\n", tGuaranteed, order, top)
-
-	for i, e := range top {
-		count, found := ss.Get(e)
-
-		if !found {
-			panic("unable to find element")
-		}
-
-		fmt.Printf("Top-%d is %d: {count: %d, error: %d}}\n", i+1, e, count.Count, count.Error)
 	}
 }

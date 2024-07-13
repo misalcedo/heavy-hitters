@@ -1,4 +1,4 @@
-package main
+package heavy_hitters
 
 // List is a doubly-linked list implementation with support for generics.
 // Support for generics allows List to avoid the indirection and memory allocations associated with interface types.

@@ -1,4 +1,4 @@
-package main
+package heavy_hitters
 
 import (
 	"github.com/stretchr/testify/require"

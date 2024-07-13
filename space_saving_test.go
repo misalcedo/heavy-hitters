@@ -1,8 +1,10 @@
-package main
+package heavy_hitters
 
 import (
 	"github.com/stretchr/testify/require"
+	"math/rand"
 	"testing"
+	"time"
 )
 
 func TestSpaceSaving(t *testing.T) {
@@ -87,4 +89,35 @@ func TestSpaceSaving_ZeroValue(t *testing.T) {
 	require.True(t, found1)
 	require.Equal(t, 1, count1.Count)
 	require.Equal(t, 0, count1.Error)
+}
+
+func BenchmarkSpaceSaving(b *testing.B) {
+	seed := time.Now().UTC().UnixNano()
+
+	s := 1.08
+	v := 2.0
+	imax := uint64(100_000)
+
+	generator := rand.NewZipf(rand.New(rand.NewSource(seed)), s, v, imax)
+	ss := NewStreamSummary[uint64](10)
+
+	for i := 0; i < b.N; i++ {
+		ss.Hit(generator.Uint64())
+	}
+
+	frequent, fGuaranteed := ss.Frequent(0.001)
+	require.Equal(b, []uint64{0}, frequent)
+	require.True(b, fGuaranteed)
+
+	top, tGuaranteed, order := ss.Top(5)
+	require.Equal(b, []uint64{0, 1, 2, 3, 4}, top)
+	require.True(b, tGuaranteed)
+	require.True(b, order)
+
+	require.Equal(b, b.N, ss.Hits())
+
+	for _, e := range top {
+		_, found := ss.Get(e)
+		require.True(b, found)
+	}
 }
